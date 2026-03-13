@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Medicare MCBS – RCM Healthcare Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #f0f4f8;
+  --card: #ffffff;
+  --primary: #1a56db;
+  --primary-light: #e8f0fe;
+  --secondary: #0e9f6e;
+  --accent: #f05252;
+  --purple: #7e3af2;
+  --orange: #ff8800;
+  --yellow: #fbbf24;
+  --text: #111928;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.05);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* TOP BAR */
+.topbar {
+  background: linear-gradient(135deg, #1a56db 0%, #1e429f 100%);
+  color: white;
+  padding: 20px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.topbar h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+.topbar p { font-size: 12px; opacity: 0.75; margin-top: 3px; }
+.topbar-right { display: flex; gap: 10px; flex-wrap: wrap; }
+.badge-top {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* TABS */
+.tabs {
+  background: white;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  overflow-x: auto;
+  padding: 0 24px;
+}
+.tab {
+  padding: 14px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.tab:hover { color: var(--primary); }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+/* PAGES */
+.page { display: none; padding: 24px 28px; max-width: 1400px; margin: 0 auto; }
+.page.active { display: block; }
+
+/* KPI ROW */
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.kpi {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  border-left: 4px solid var(--primary);
+  position: relative;
+  overflow: hidden;
+}
+.kpi::after {
+  content: '';
+  position: absolute;
+  top: -20px; right: -20px;
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: var(--kpi-color, var(--primary));
+  opacity: 0.06;
+}
+.kpi-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+.kpi-value { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; }
+.kpi-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+.kpi-trend { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 4px; margin-top: 6px; }
+.trend-up { background: #d1fae5; color: #065f46; }
+.trend-down { background: #fee2e2; color: #991b1b; }
+
+/* GRID LAYOUTS */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+.grid-3-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 20px; }
+@media(max-width:900px) { .grid-2,.grid-3,.grid-3-1 { grid-template-columns:1fr; } }
+
+/* CARDS */
+.card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: var(--shadow);
+}
+.card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-sub { font-size: 11px; color: var(--muted); margin-bottom: 18px; }
+.chart-wrap { position: relative; width: 100%; }
+
+/* INSIGHT BOX */
+.insight {
+  background: var(--primary-light);
+  border: 1px solid #c3dafe;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 12px;
+  color: #1e3a8a;
+  line-height: 1.6;
+  margin-top: 14px;
+}
+.insight strong { font-weight: 700; }
+
+/* STEP GUIDE */
+.step-list { list-style: none; }
+.step-item {
+  display: flex;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.step-item:last-child { border-bottom: none; }
+.step-num {
+  width: 32px; height: 32px;
+  background: var(--primary);
+  color: white;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+  flex-shrink: 0;
+}
+.step-body h4 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.step-body p { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+.step-body code {
+  display: inline-block;
+  background: #f3f4f6;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--primary);
+  margin: 2px 2px 0 0;
+}
+
+/* TABLE */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th {
+  background: #f9fafb;
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+}
+.data-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #f3f4f6;
+  color: var(--text);
+}
+.data-table tr:hover td { background: #f9fafb; }
+.pct-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.pct-bar-bg { flex: 1; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
+.pct-bar-fill { height: 100%; border-radius: 3px; }
+
+/* LEGEND */
+.legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+/* SECTION TITLE */
+.section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--border);
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div>
+    <h1>🏥 Medicare MCBS — Healthcare RCM Dashboard</h1>
+    <p>Medicare Current Beneficiary Survey · 2023 · 6,920 Beneficiaries · 134 Variables</p>
+  </div>
+  <div class="topbar-right">
+    <span class="badge-top">📊 Survey Year: 2023</span>
+    <span class="badge-top">👥 n = 6,920</span>
+    <span class="badge-top">🇺🇸 CMS Public Data</span>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="showTab('overview')">📋 Overview</div>
+  <div class="tab" onclick="showTab('payments')">💰 Payments & Payers</div>
+  <div class="tab" onclick="showTab('utilization')">📈 Utilization</div>
+  <div class="tab" onclick="showTab('demographics')">👥 Demographics</div>
+  <div class="tab" onclick="showTab('chronic')">🩺 Chronic Conditions</div>
+</div>
+
+<!-- ══════════════════ PAGE 1: OVERVIEW ══════════════════ -->
+<div class="page active" id="page-overview">
+
+  <div class="kpi-row">
+    <div class="kpi" style="--kpi-color:#1a56db; border-left-color:#1a56db;">
+      <div class="kpi-label">Total Beneficiaries</div>
+      <div class="kpi-value">6,920</div>
+      <div class="kpi-sub">MCBS 2023 sample</div>
+    </div>
+    <div class="kpi" style="--kpi-color:#0e9f6e; border-left-color:#0e9f6e;">
+      <div class="kpi-label">Avg Total Payment</div>
+      <div class="kpi-value">$20,035</div>
+      <div class="kpi-sub">Per beneficiary/year</div>
+      <span class="kpi-trend trend-up">↑ Higher for Males</span>
+    </div>
+    <div class="kpi" style="--kpi-color:#f05252; border-left-color:#f05252;">
+      <div class="kpi-label">Avg Out-of-Pocket</div>
+      <div class="kpi-value">$2,677</div>
+      <div class="kpi-sub">13.4% of total spend</div>
+      <span class="kpi-trend trend-down">↑ Higher 75+ age group</span>
+    </div>
+    <div class="kpi" style="--kpi-color:#7e3af2; border-left-color:#7e3af2;">
+      <div class="kpi-label">Medicare Covers</div>
+      <div class="kpi-value">46.3%</div>
+      <div class="kpi-sub">Avg $9,282 per person</div>
+    </div>
+    <div class="kpi" style="--kpi-color:#ff8800; border-left-color:#ff8800;">
+      <div class="kpi-label">Avg Healthcare Events</div>
+      <div class="kpi-value">80.2</div>
+      <div class="kpi-sub">Per beneficiary/year</div>
+    </div>
+    <div class="kpi" style="--kpi-color:#fbbf24; border-left-color:#fbbf24;">
+      <div class="kpi-label">Have 3+ Chronic Cond.</div>
+      <div class="kpi-value">52.4%</div>
+      <div class="kpi-sub">Highest cost segment</div>
+      <span class="kpi-trend trend-down">Risk: $24,522 avg</span>
+    </div>
+  </div>
+
+  <div class="grid-3-1">
+    <div class="card">
+      <div class="card-title">💵 RCM Payment Flow — Where Does Every Dollar Go?</div>
+      <div class="card-sub">Average payments per beneficiary by payer source · Total avg: $20,035/year</div>
+      <div class="chart-wrap" style="height:280px">
+        <canvas id="payerFlowChart"></canvas>
+      </div>
+      <div class="insight">
+        <strong>Key Insight:</strong> Medicare (Traditional + Advantage) covers <strong>69%</strong> of all costs ($13,901). Out-of-pocket burden is $2,677 — but this spikes to <strong>$3,244 for 75+ beneficiaries</strong> and <strong>$3,106 for White beneficiaries</strong> vs only $1,293 for Hispanic beneficiaries (covered more by Medicaid).
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">🏥 Beneficiary Profile</div>
+      <div class="card-sub">Demographics snapshot</div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="profileChart"></canvas>
+      </div>
+      <div style="margin-top:16px;">
+        <div class="section-title">Age Distribution</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>75+ years</span><span style="font-weight:700;color:#1a56db">49.1%</span></div>
+            <div class="pct-bar-bg"><div class="pct-bar-fill" style="width:49.1%;background:#1a56db;"></div></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>65–74 years</span><span style="font-weight:700;color:#7e3af2">35.6%</span></div>
+            <div class="pct-bar-bg"><div class="pct-bar-fill" style="width:35.6%;background:#7e3af2;"></div></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>Under 65 (Disabled/ESRD)</span><span style="font-weight:700;color:#f05252">15.3%</span></div>
+            <div class="pct-bar-bg"><div class="pct-bar-fill" style="width:15.3%;background:#f05252;"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">🏷️ Cost by Service Type</div>
+      <div class="card-sub">Average payment per beneficiary · What services drive the most spend?</div>
+      <div class="chart-wrap" style="height:260px">
+        <canvas id="serviceChart"></canvas>
+      </div>
+      <div class="insight"><strong>Rx + Medical Provider = 57%</strong> of all healthcare spend. Prescription meds alone average $6,185/year per person — the single largest cost driver.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">📊 Service Utilization Rate</div>
+      <div class="card-sub">% of beneficiaries who used each service at least once</div>
+      <div class="chart-wrap" style="height:260px">
+        <canvas id="utilPctChart"></canvas>
+      </div>
+      <div class="insight"><strong>96.9%</strong> saw a medical provider and <strong>96.4%</strong> used prescription meds. But inpatient hospitalization was only <strong>9.6%</strong> — yet it is the highest per-event cost in RCM.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ PAGE 2: PAYMENTS ══════════════════ -->
+<div class="page" id="page-payments">
+  <div class="section-title">💰 Payment & Payer Analysis</div>
+
+  <div class="kpi-row">
+    <div class="kpi" style="border-left-color:#1a56db;">
+      <div class="kpi-label">Medicare (Traditional)</div>
+      <div class="kpi-value">$9,282</div>
+      <div class="kpi-sub">46.3% of total · 92.8% utilized</div>
+    </div>
+    <div class="kpi" style="border-left-color:#7e3af2;">
+      <div class="kpi-label">Medicare Advantage</div>
+      <div class="kpi-value">$4,619</div>
+      <div class="kpi-sub">23.1% of total · 51.6% utilized</div>
+    </div>
+    <div class="kpi" style="border-left-color:#f05252;">
+      <div class="kpi-label">Out-of-Pocket</div>
+      <div class="kpi-value">$2,677</div>
+      <div class="kpi-sub">13.4% of total · 95.8% face costs</div>
+    </div>
+    <div class="kpi" style="border-left-color:#0e9f6e;">
+      <div class="kpi-label">Medicaid</div>
+      <div class="kpi-value">$1,367</div>
+      <div class="kpi-sub">6.8% of total · 17.6% dual-eligible</div>
+    </div>
+    <div class="kpi" style="border-left-color:#ff8800;">
+      <div class="kpi-label">Other Insurance</div>
+      <div class="kpi-value">$1,089</div>
+      <div class="kpi-sub">5.4% of total · 42.0% utilized</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">🥧 Payer Mix — Who Pays What?</div>
+      <div class="card-sub">Breakdown of average $20,035 per beneficiary by payer</div>
+      <div class="chart-wrap" style="height:300px">
+        <canvas id="payerPieChart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📊 Out-of-Pocket by Income Level</div>
+      <div class="card-sub">Low income vs Middle/High income beneficiaries</div>
+      <div class="chart-wrap" style="height:160px">
+        <canvas id="oopIncomeChart"></canvas>
+      </div>
+      <div class="insight" style="margin-top:10px;">
+        <strong>139% higher OOP burden</strong> for Middle/High income ($3,263) vs Low income ($1,366). Low-income beneficiaries are protected by Medicaid dual-eligibility which covers co-pays and deductibles.
+      </div>
+      <div style="margin-top:16px;" class="card-title">💡 OOP by Race/Ethnicity</div>
+      <div class="chart-wrap" style="height:160px">
+        <canvas id="oopRaceChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 Full Payment Breakdown Table</div>
+    <div class="card-sub">All payer columns decoded from MCBS dataset</div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Column</th>
+          <th>Label</th>
+          <th>Avg / Person</th>
+          <th>% With Costs</th>
+          <th>Visual</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>PAMTPM</code></td><td>Prescription Medications</td><td>$6,185</td><td>96.4%</td><td><div class="pct-bar-wrap"><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:96.4%;background:#1a56db;"></div></div>96.4%</div></td></tr>
+        <tr><td><code>PAMTMP</code></td><td>Medical Provider Visits</td><td>$5,491</td><td>96.6%</td><td><div class="pct-bar-wrap"><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:96.6%;background:#0e9f6e;"></div></div>96.6%</div></td></tr>
+        <tr><td><code>PAMTOP</code></td><td>Outpatient Services</td><td>$2,859</td><td>72.2%</td><td><div class="pct-bar-wrap"><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:72.2%;background:#7e3af2;"></div></div>72.2%</div></td></tr>
+        <tr><td><code>PAMTIP</code></td><td>Inpatient / Hospital</td><td>$2,649</td><td>9.4%</td><td><div class="pct-bar-wrap"><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:9.4%;background:#f05252;"></div></div>9.4%</div></td></tr>
+        <tr><td><code>PAMTHH</code></td><td>Home Health</td><td>$1,337</td><td>10.6%</td><td><div class="pct-bar-wrap"><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:10.6%;background:#ff8800;"></div></div>10.6%</div></td></tr>
+        <tr><td><code>PAMTDU</code></td><td>Dental (Uncovered)</td><td>$891</td><td>61.2%</td><td><div class="pct-bar-wrap"><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:61.2%;background:#fbbf24;"></div></div>61.2%</div></td></tr>
+        <tr><td><code>PAMTVU</code></td><td>Vision (Uncovered)</td><td>$327</td><td>58.3%</td><td><div class="pct-bar-wrap"><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:58.3%;background:#84cc16;"></div></div>58.3%</div></td></tr>
+        <tr><td><code>PAMTHU</code></td><td>Hearing (Uncovered)</td><td>$107</td><td>12.2%</td><td><div class="pct-bar-wrap"><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:12.2%;background:#06b6d4;"></div></div>12.2%</div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════ PAGE 3: UTILIZATION ══════════════════ -->
+<div class="page" id="page-utilization">
+  <div class="section-title">📈 Healthcare Utilization Analysis</div>
+
+  <div class="kpi-row">
+    <div class="kpi" style="border-left-color:#1a56db;">
+      <div class="kpi-label">Avg Total Events/Year</div>
+      <div class="kpi-value">80.2</div>
+      <div class="kpi-sub">Per beneficiary</div>
+    </div>
+    <div class="kpi" style="border-left-color:#0e9f6e;">
+      <div class="kpi-label">Prescription Events</div>
+      <div class="kpi-value">32.8</div>
+      <div class="kpi-sub">Largest utilization category</div>
+    </div>
+    <div class="kpi" style="border-left-color:#7e3af2;">
+      <div class="kpi-label">Medical Provider Visits</div>
+      <div class="kpi-value">32.0</div>
+      <div class="kpi-sub">2nd highest category</div>
+    </div>
+    <div class="kpi" style="border-left-color:#f05252;">
+      <div class="kpi-label">Inpatient Events</div>
+      <div class="kpi-value">0.16</div>
+      <div class="kpi-sub">Low freq, highest cost/event</div>
+    </div>
+    <div class="kpi" style="border-left-color:#ff8800;">
+      <div class="kpi-label">Home Health Events</div>
+      <div class="kpi-value">6.8</div>
+      <div class="kpi-sub">Max observed: 427 events</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">📊 Average Events by Service Type</div>
+      <div class="card-sub">Mean annual events per beneficiary (MCBS 2023)</div>
+      <div class="chart-wrap" style="height:280px">
+        <canvas id="eventsBarChart"></canvas>
+      </div>
+      <div class="insight"><strong>Prescriptions + Medical Visits = 81%</strong> of all healthcare touchpoints. These are also the two highest-volume RCM billing categories.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">📈 Events vs Payments — Cost per Event</div>
+      <div class="card-sub">Which service type is most expensive per encounter?</div>
+      <div class="chart-wrap" style="height:280px">
+        <canvas id="costPerEventChart"></canvas>
+      </div>
+      <div class="insight"><strong>Inpatient = $16,557/event</strong> — by far the highest per-event cost despite only 9.6% of patients using it. This is the highest-risk area for claim denials and AR delays in RCM.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 Complete Utilization Metrics — All Event Columns</div>
+    <div class="card-sub">MCBS event variables decoded for RCM dashboard use</div>
+    <table class="data-table">
+      <thead>
+        <tr><th>Column</th><th>Service Type</th><th>Avg Events/Year</th><th>% Used</th><th>Avg Cost/Event</th><th>RCM Risk Level</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>IPAEVNTS</code></td><td>🏨 Inpatient / Hospital</td><td>0.16</td><td>9.6%</td><td style="color:#f05252;font-weight:700;">$16,557</td><td><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">🔴 CRITICAL</span></td></tr>
+        <tr><td><code>HHAEVNTS</code></td><td>🏠 Home Health</td><td>6.8</td><td>10.7%</td><td style="color:#f05252;font-weight:700;">$12,614</td><td><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">🔴 HIGH</span></td></tr>
+        <tr><td><code>OPAEVNTS</code></td><td>🏥 Outpatient</td><td>5.1</td><td>72.6%</td><td>$560</td><td><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">🟡 MEDIUM</span></td></tr>
+        <tr><td><code>MPAEVNTS</code></td><td>👨‍⚕️ Medical Provider</td><td>32.0</td><td>96.9%</td><td>$172</td><td><span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">🟢 LOW</span></td></tr>
+        <tr><td><code>PMAEVNTS</code></td><td>💊 Prescription Meds</td><td>32.8</td><td>96.4%</td><td>$189</td><td><span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">🟢 LOW</span></td></tr>
+        <tr><td><code>DUAEVNTS</code></td><td>🦷 Dental</td><td>1.7</td><td>62.1%</td><td>$524</td><td><span style="background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">🔵 OOP</span></td></tr>
+        <tr><td><code>VUAEVNTS</code></td><td>👁️ Vision</td><td>1.3</td><td>60.4%</td><td>$252</td><td><span style="background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">🔵 OOP</span></td></tr>
+        <tr><td><code>HUAEVNTS</code></td><td>👂 Hearing</td><td>0.3</td><td>15.2%</td><td>$356</td><td><span style="background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">🔵 OOP</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════ PAGE 4: DEMOGRAPHICS ══════════════════ -->
+<div class="page" id="page-demographics">
+  <div class="section-title">👥 Demographic Analysis</div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">👴 Total Cost by Age Group</div>
+      <div class="card-sub">Avg total payment and out-of-pocket cost</div>
+      <div class="chart-wrap" style="height:280px"><canvas id="ageCostChart"></canvas></div>
+      <div class="insight"><strong>Under-65 beneficiaries</strong> (disabled/ESRD) cost the most at <strong>$28,680/year</strong> — nearly double the 65–74 group. They represent only 15.3% of beneficiaries but are the highest-cost segment.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">⚧ Gender — Cost & Events</div>
+      <div class="card-sub">Males vs Females — spending and healthcare use</div>
+      <div class="chart-wrap" style="height:280px"><canvas id="genderChart"></canvas></div>
+      <div class="insight"><strong>Males spend $2,953 more</strong> per year than females ($21,663 vs $18,711) — but females have <strong>more events</strong> (82.1 vs 77.8). Male costs are driven by higher inpatient and specialist billing.</div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">🌍 Total Cost by Race/Ethnicity</div>
+      <div class="card-sub">Avg total spend per beneficiary</div>
+      <div class="chart-wrap" style="height:260px"><canvas id="raceCostChart"></canvas></div>
+      <div class="insight"><strong>Hispanic beneficiaries</strong> have the highest total costs ($22,580) but <strong>lowest OOP</strong> ($1,293) — indicating heavy Medicaid dual-eligibility coverage ($3,764 Medicaid avg).</div>
+    </div>
+    <div class="card">
+      <div class="card-title">💳 Medicaid Coverage by Race</div>
+      <div class="card-sub">Who relies most on dual-eligibility?</div>
+      <div class="chart-wrap" style="height:260px"><canvas id="medicaidRaceChart"></canvas></div>
+      <div class="insight"><strong>White beneficiaries</strong> average only $784 Medicaid vs <strong>$3,764 for Hispanic</strong> beneficiaries — reflecting stark disparities in dual-eligibility access and income levels across racial groups.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ PAGE 5: CHRONIC ══════════════════ -->
+<div class="page" id="page-chronic">
+  <div class="section-title">🩺 Chronic Conditions Impact Analysis</div>
+  <div class="kpi-row">
+    <div class="kpi" style="border-left-color:#1a56db;">
+      <div class="kpi-label">1 Chronic Condition</div>
+      <div class="kpi-value">$11,203</div>
+      <div class="kpi-sub">12.3% of sample · 851 people</div>
+    </div>
+    <div class="kpi" style="border-left-color:#ff8800;">
+      <div class="kpi-label">2 Chronic Conditions</div>
+      <div class="kpi-value">$16,451</div>
+      <div class="kpi-sub">35.3% of sample · 2,443 people</div>
+    </div>
+    <div class="kpi" style="border-left-color:#f05252;">
+      <div class="kpi-label">3+ Chronic Conditions</div>
+      <div class="kpi-value">$24,522</div>
+      <div class="kpi-sub">52.4% of sample · 3,626 people</div>
+      <span class="kpi-trend trend-down">119% more than 1-condition</span>
+    </div>
+    <div class="kpi" style="border-left-color:#7e3af2;">
+      <div class="kpi-label">OOP: 3+ Conditions</div>
+      <div class="kpi-value">$3,118</div>
+      <div class="kpi-sub">vs $1,803 for 1 condition</div>
+    </div>
+    <div class="kpi" style="border-left-color:#0e9f6e;">
+      <div class="kpi-label">Events: 3+ Conditions</div>
+      <div class="kpi-value">100.5</div>
+      <div class="kpi-sub">vs 42.1 for 1 condition</div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">📊 Total Cost by Chronic Condition Count</div>
+      <div class="card-sub">How chronic burden escalates healthcare spend</div>
+      <div class="chart-wrap" style="height:280px"><canvas id="chronicCostChart"></canvas></div>
+      <div class="insight">Each additional chronic condition adds ~<strong>$6,600 in annual healthcare spend</strong>. The 3+ group (52% of all beneficiaries!) drives the majority of total RCM billing volume.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">📈 Events & Inpatient Costs by Condition Count</div>
+      <div class="card-sub">Utilization intensity vs chronic burden</div>
+      <div class="chart-wrap" style="height:280px"><canvas id="chronicEventsChart"></canvas></div>
+      <div class="insight"><strong>Inpatient costs</strong> go from $1,408 (1 condition) → $3,365 (3+ conditions). Inpatient claims are the highest-risk for denials and delayed AR — the core of RCM work.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ PAGE 6: GUIDE ══════════════════ -->
+
+
+<script>
+// ─── CHART DEFAULTS ───────────────────────────────
+Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+Chart.defaults.plugins.legend.labels.pointStyleWidth = 8;
+const COLORS = ['#1a56db','#0e9f6e','#f05252','#7e3af2','#ff8800','#fbbf24','#06b6d4','#84cc16'];
+const fmt = v => '$' + v.toLocaleString('en-US', {maximumFractionDigits:0});
+
+// ─── TAB SWITCHING ────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ─── CHART 1: Payer Flow (Horizontal Bar) ─────────
+new Chart(document.getElementById('payerFlowChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Medicare\n(Traditional)','Medicare\nAdvantage','Out-of-Pocket','Medicaid','Other Ins.','Other','Discounts'],
+    datasets: [{
+      label: 'Avg Payment ($)',
+      data: [9282, 4619, 2677, 1367, 1089, 563, 438],
+      backgroundColor: COLORS,
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.raw) } } },
+    scales: {
+      x: { ticks: { callback: v => '$'+v.toLocaleString() }, grid: { color: '#f3f4f6' } },
+      y: { ticks: { font: { size: 11 } } }
+    }
+  }
+});
+
+// ─── CHART 2: Profile Donut ─────────────────────────
+new Chart(document.getElementById('profileChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['White (73.6%)','Black (10.6%)','Hispanic (10.9%)','Other (5%)'],
+    datasets: [{ data: [5091,732,753,344], backgroundColor: ['#1a56db','#f05252','#ff8800','#7e3af2'], borderWidth: 2, borderColor:'#fff' }]
+  },
+  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+});
+
+// ─── CHART 3: Service Costs ─────────────────────────
+new Chart(document.getElementById('serviceChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Prescription\nMeds','Medical\nProvider','Outpatient','Inpatient','Home\nHealth','Dental','Vision','Hearing'],
+    datasets: [{
+      label: 'Avg Cost ($)',
+      data: [6185, 5491, 2859, 2649, 1337, 891, 327, 107],
+      backgroundColor: COLORS, borderRadius: 6
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.raw) } } },
+    scales: { y: { ticks: { callback: v => '$'+v.toLocaleString() } } }
+  }
+});
+
+// ─── CHART 4: Utilization % ─────────────────────────
+new Chart(document.getElementById('utilPctChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Medical\nProvider','Prescription\nMeds','Outpatient','Dental','Vision','Hearing','Home\nHealth','Inpatient'],
+    datasets: [{
+      label: '% Utilized',
+      data: [96.9, 96.4, 72.6, 62.1, 60.4, 15.2, 10.7, 9.6],
+      backgroundColor: ['#1a56db','#0e9f6e','#7e3af2','#fbbf24','#84cc16','#06b6d4','#ff8800','#f05252'],
+      borderRadius: 6
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.raw + '%' } } },
+    scales: { x: { max: 100, ticks: { callback: v => v+'%' } } }
+  }
+});
+
+// ─── CHART 5: Payer Pie ─────────────────────────────
+new Chart(document.getElementById('payerPieChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Medicare Traditional','Medicare Advantage','Out-of-Pocket','Medicaid','Other Insurance','Discounts','Other'],
+    datasets: [{ data: [9282,4619,2677,1367,1089,438,563], backgroundColor: COLORS, borderWidth: 2, borderColor:'#fff' }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12 } }, tooltip: { callbacks: { label: c => c.label+': '+fmt(c.raw) } } }
+  }
+});
+
+// ─── CHART 6: OOP by Income ─────────────────────────
+new Chart(document.getElementById('oopIncomeChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Low Income','Middle/High Income'],
+    datasets: [{ label: 'Avg OOP ($)', data: [1366, 3263], backgroundColor: ['#0e9f6e','#f05252'], borderRadius: 8 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.raw) } } },
+    scales: { y: { ticks: { callback: v => '$'+v.toLocaleString() } } }
+  }
+});
+
+// ─── CHART 7: OOP by Race ───────────────────────────
+new Chart(document.getElementById('oopRaceChart'), {
+  type: 'bar',
+  data: {
+    labels: ['White','Black','Other','Hispanic'],
+    datasets: [{ label: 'Avg OOP ($)', data: [3106, 1456, 1963, 1293], backgroundColor: ['#1a56db','#f05252','#7e3af2','#ff8800'], borderRadius: 8 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.raw) } } },
+    scales: { y: { ticks: { callback: v => '$'+v.toLocaleString() } } }
+  }
+});
+
+// ─── CHART 8: Events Bar ────────────────────────────
+new Chart(document.getElementById('eventsBarChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Prescriptions','Medical Provider','Home Health','Outpatient','Dental','Vision','Hearing','Inpatient'],
+    datasets: [{ label: 'Avg Events/Year', data: [32.8,32.0,6.8,5.1,1.75,1.31,0.30,0.16], backgroundColor: COLORS, borderRadius: 6 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: { y: { title: { display: true, text: 'Avg Events' } } }
+  }
+});
+
+// ─── CHART 9: Cost Per Event ────────────────────────
+new Chart(document.getElementById('costPerEventChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Inpatient','Home Health','Dental','Outpatient','Vision','Prescription','Medical Provider'],
+    datasets: [{ label: 'Cost per Event ($)', data: [16557,12614,524,560,252,189,172], backgroundColor: ['#f05252','#ff8800','#fbbf24','#7e3af2','#84cc16','#1a56db','#0e9f6e'], borderRadius: 6 }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.raw) } } },
+    scales: { x: { ticks: { callback: v => '$'+v.toLocaleString() } } }
+  }
+});
+
+// ─── CHART 10: Age Cost ─────────────────────────────
+new Chart(document.getElementById('ageCostChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Under 65\n(Disabled/ESRD)', '65–74 years', '75+ years'],
+    datasets: [
+      { label: 'Total Cost', data: [28680,15963,20294], backgroundColor: ['#f05252','#1a56db','#7e3af2'], borderRadius: 6 },
+      { label: 'Out-of-Pocket', data: [1826,2261,3244], backgroundColor: ['#fca5a5','#93c5fd','#c4b5fd'], borderRadius: 6 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => c.dataset.label+': '+fmt(c.raw) } } },
+    scales: { y: { ticks: { callback: v => '$'+v.toLocaleString() } } }
+  }
+});
+
+// ─── CHART 11: Gender ───────────────────────────────
+new Chart(document.getElementById('genderChart'), {
+  type: 'radar',
+  data: {
+    labels: ['Total Spend\n($000s)', 'Out-of-Pocket\n($00s)', 'Events Count', 'Medicare Pd\n($000s)', 'Medicaid Pd\n($00s)'],
+    datasets: [
+      { label: 'Male', data: [21.7, 28.3, 77.8, 9.7, 13.6], borderColor: '#1a56db', backgroundColor: 'rgba(26,86,219,0.1)', pointBackgroundColor: '#1a56db' },
+      { label: 'Female', data: [18.7, 25.6, 82.1, 8.8, 13.7], borderColor: '#f05252', backgroundColor: 'rgba(240,82,82,0.1)', pointBackgroundColor: '#f05252' }
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+});
+
+// ─── CHART 12: Race Total Cost ──────────────────────
+new Chart(document.getElementById('raceCostChart'), {
+  type: 'bar',
+  data: {
+    labels: ['White','Black','Hispanic','Other'],
+    datasets: [{ label: 'Total Cost ($)', data: [19828,20787,22580,15923], backgroundColor: COLORS, borderRadius: 6 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.raw) } } },
+    scales: { y: { ticks: { callback: v => '$'+v.toLocaleString() } } }
+  }
+});
+
+// ─── CHART 13: Medicaid by Race ─────────────────────
+new Chart(document.getElementById('medicaidRaceChart'), {
+  type: 'bar',
+  data: {
+    labels: ['White','Other','Black','Hispanic'],
+    datasets: [{ label: 'Avg Medicaid Coverage ($)', data: [784,1378,2946,3764], backgroundColor: ['#1a56db','#7e3af2','#f05252','#ff8800'], borderRadius: 6 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.raw) } } },
+    scales: { y: { ticks: { callback: v => '$'+v.toLocaleString() } } }
+  }
+});
+
+// ─── CHART 14: Chronic Cost ─────────────────────────
+new Chart(document.getElementById('chronicCostChart'), {
+  type: 'bar',
+  data: {
+    labels: ['1 Condition','2 Conditions','3+ Conditions'],
+    datasets: [
+      { label: 'Total Cost', data: [11203,16451,24522], backgroundColor: ['#0e9f6e','#ff8800','#f05252'], borderRadius: 6 },
+      { label: 'Out-of-Pocket', data: [1803,2327,3118], backgroundColor: ['#6ee7b7','#fcd34d','#fca5a5'], borderRadius: 6 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => c.dataset.label+': '+fmt(c.raw) } } },
+    scales: { y: { ticks: { callback: v => '$'+v.toLocaleString() } } }
+  }
+});
+
+// ─── CHART 15: Chronic Events + Inpatient ───────────
+new Chart(document.getElementById('chronicEventsChart'), {
+  type: 'line',
+  data: {
+    labels: ['1 Condition','2 Conditions','3+ Conditions'],
+    datasets: [
+      { label: 'Total Events', data: [42.1,63.3,100.5], borderColor: '#1a56db', backgroundColor: 'rgba(26,86,219,0.1)', tension: 0.4, fill: true, yAxisID: 'y' },
+      { label: 'Inpatient Cost ($)', data: [1408,2019,3365], borderColor: '#f05252', backgroundColor: 'rgba(240,82,82,0.1)', tension: 0.4, fill: true, yAxisID: 'y1' }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom' } },
+    scales: {
+      y: { type: 'linear', position: 'left', title: { display: true, text: 'Events' } },
+      y1: { type: 'linear', position: 'right', title: { display: true, text: 'Inpatient Cost ($)' }, grid: { drawOnChartArea: false }, ticks: { callback: v => '$'+v.toLocaleString() } }
+    }
+  }
+});
+</script>
+</body>
+</html>
